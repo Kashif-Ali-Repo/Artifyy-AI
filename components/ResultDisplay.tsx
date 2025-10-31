@@ -181,7 +181,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ originalImage, enhancedIm
       <div className="bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-lg p-6 mb-8">
         <h2 className="text-2xl font-bold text-indigo-400 mb-4 text-center">Refine with a Prompt</h2>
         <form onSubmit={handleChatSubmit} className="max-w-xl mx-auto">
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <input
               type="text"
               value={chatPrompt}
@@ -193,7 +193,7 @@ const ResultDisplay: React.FC<ResultDisplayProps> = ({ originalImage, enhancedIm
             <button
               type="submit"
               disabled={isChatting || !chatPrompt.trim()}
-              className="inline-flex items-center justify-center px-6 py-2 text-base font-semibold text-white transition-all duration-200 bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full sm:w-auto inline-flex items-center justify-center px-6 py-2 text-base font-semibold text-white transition-all duration-200 bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isChatting ? (
                 <>

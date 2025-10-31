@@ -206,8 +206,10 @@ const App: React.FC = () => {
       <main className="w-full flex-grow flex flex-col items-center justify-center">
         {renderContent()}
       </main>
-      <footer className="text-center text-gray-500 mt-10 text-sm">
+      <footer className="text-center text-gray-500 mt-10 text-sm space-y-2">
         <p>Powered by Gemini. Designed for amazing results.</p>
+        <p>Disclaimer: AI-generated enhancements may produce unexpected results. Please use responsibly.</p>
+        <p>&copy; 2024 Artifyy AI. All rights reserved.</p>
       </footer>
     </div>
   );

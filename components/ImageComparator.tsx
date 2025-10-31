@@ -75,7 +75,7 @@ const ImageComparator: React.FC<ImageComparatorProps> = ({ beforeImage, afterIma
   return (
     <div 
       ref={containerRef} 
-      className="relative w-full aspect-auto md:aspect-[4/3] max-w-full mx-auto select-none overflow-hidden rounded-lg shadow-2xl bg-gray-800"
+      className="relative w-full aspect-square md:aspect-[4/3] max-w-full mx-auto select-none overflow-hidden rounded-lg shadow-2xl bg-gray-800"
       onMouseMove={handleMouseMove}
       onMouseEnter={() => !isDragging && setIsZoomed(true)}
       onMouseLeave={() => setIsZoomed(false)}
