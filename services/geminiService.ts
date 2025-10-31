@@ -64,6 +64,19 @@ const getDetailLevelPrompt = (level: number): string => {
   return "Significantly increase sharpness and bring out fine textures for a high-definition look. Be careful to avoid creating artificial halos or artifacts.";
 }
 
+const getStrengthPrompt = (strength: EnhancementStrength): string => {
+  switch (strength) {
+    case EnhancementStrength.SUBTLE:
+      return "Apply very gentle, barely noticeable enhancements. Prioritize realism over perfection.";
+    case EnhancementStrength.NATURAL:
+      return "Apply balanced, natural-looking enhancements. The photo should look like it was taken by a professional, but not overly edited.";
+    case EnhancementStrength.STRONG:
+      return "Apply significant enhancements for a dramatic effect, but maintain realism. Boost colors to be strong and warm, increase contrast, and sharpen details significantly. It is crucial to preserve the subject's natural features and avoid an over-processed or artificially bright look, especially on faces.";
+    default:
+      return `The desired enhancement intensity is "${strength}".`;
+  }
+};
+
 
 export const enhanceImage = async (image: ImageFile, suggestions: string[], strength: EnhancementStrength, detailLevel: number): Promise<ImageFile> => {
   try {
@@ -71,9 +84,9 @@ export const enhanceImage = async (image: ImageFile, suggestions: string[], stre
 
 **Instructions:**
 *   Apply the following enhancements: ${suggestions.join(', ')}.
-*   If brightening a face is requested, focus on selectively increasing the exposure and brightness on the person's face while keeping the background lighting natural and consistent.
-*   The desired enhancement intensity is "${strength}".
-*   The desired detail enhancement level is ${detailLevel}/100. ${getDetailLevelPrompt(detailLevel)}.
+*   If brightening a face is requested, it is crucial to apply this enhancement evenly across all visible skin of the subject. Ensure the entire skin tone is brightened with consistent light and color to maintain a natural look. Avoid creating patches or making different parts of the skin appear disconnected. The goal is a uniform brightening of the person while keeping the background lighting consistent.
+*   Enhancement Intensity: ${getStrengthPrompt(strength)}.
+*   Detail Enhancement Level: ${detailLevel}/100. ${getDetailLevelPrompt(detailLevel)}.
 *   Preserve the subject's original identity and expression. Do not unnaturally distort facial features or skin color.
 
 **Output:**

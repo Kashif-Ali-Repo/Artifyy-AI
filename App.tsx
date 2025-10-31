@@ -15,8 +15,13 @@ const App: React.FC = () => {
 
   const [originalImage, setOriginalImage] = useState<ImageFile | null>(null);
   const [imageToProcess, setImageToProcess] = useState<ImageFile | null>(null);
-  const [enhancedImage, setEnhancedImage] = useState<ImageFile | null>(null);
+  const [originalFilename, setOriginalFilename] = useState<string>('');
   
+  // State for image history and undo functionality
+  const [imageHistory, setImageHistory] = useState<ImageFile[]>([]);
+  const [currentImageIndex, setCurrentImageIndex] = useState(-1);
+  const enhancedImage = imageHistory[currentImageIndex] ?? null;
+
   const [analysis, setAnalysis] = useState('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [enhancementSummary, setEnhancementSummary] = useState('');
@@ -26,10 +31,12 @@ const App: React.FC = () => {
     setError(null);
     setOriginalImage(null);
     setImageToProcess(null);
-    setEnhancedImage(null);
+    setImageHistory([]);
+    setCurrentImageIndex(-1);
     setAnalysis('');
     setSuggestions([]);
     setEnhancementSummary('');
+    setOriginalFilename('');
   };
 
   const handleImageUpload = useCallback(async (file: File) => {
@@ -43,6 +50,8 @@ const App: React.FC = () => {
 
     try {
       const imageFile = await fileToImageFile(file);
+      const nameWithoutExtension = file.name.split('.').slice(0, -1).join('.') || file.name;
+      setOriginalFilename(nameWithoutExtension);
       setOriginalImage(imageFile);
       setImageToProcess(imageFile);
       setAppState(AppState.PREVIEW);
@@ -80,7 +89,8 @@ const App: React.FC = () => {
       const enhancedImageResult = await enhanceImage(imageToProcess, selectedSuggestions, strength, detailLevel);
       const summaryText = `Here are the enhancements I've made:\n\n* ${selectedSuggestions.join('\n* ')}`;
       
-      setEnhancedImage(enhancedImageResult);
+      setImageHistory([imageToProcess, enhancedImageResult]);
+      setCurrentImageIndex(1);
       setEnhancementSummary(summaryText);
       setAppState(AppState.DONE);
     } catch (err) {
@@ -90,14 +100,23 @@ const App: React.FC = () => {
   }, [imageToProcess]);
 
   const handleRefine = () => {
-    setEnhancedImage(null);
     setEnhancementSummary('');
     setAppState(AppState.AWAITING_CONFIRMATION);
   };
 
   const handleImageUpdate = (newImage: ImageFile) => {
-    setEnhancedImage(newImage);
+    const newHistory = imageHistory.slice(0, currentImageIndex + 1);
+    newHistory.push(newImage);
+    setImageHistory(newHistory);
+    setCurrentImageIndex(newHistory.length - 1);
   };
+  
+  const handleUndo = () => {
+    if (currentImageIndex > 0) {
+      setCurrentImageIndex(currentImageIndex - 1);
+    }
+  };
+  const canUndo = currentImageIndex > 0;
 
   const renderContent = () => {
     switch (appState) {
@@ -132,14 +151,19 @@ const App: React.FC = () => {
             </div>
           );
         }
-        return <LoadingSpinner message="Loading image..." />;
+        return <LoadingSpinner messages={["Loading image..."]} />;
       case AppState.CROPPING:
         if (originalImage) {
           return <ImageCropper imageFile={originalImage} onCropComplete={handleCropComplete} onCancel={() => setAppState(AppState.PREVIEW)} />;
         }
-        return <LoadingSpinner message="Loading image..."/>;
+        return <LoadingSpinner messages={["Loading image..."]}/>;
       case AppState.ANALYZING:
-        return <LoadingSpinner message="Analyzing your photo..." />;
+        return <LoadingSpinner messages={[
+          "Scanning for imperfections...",
+          "Evaluating lighting and color...",
+          "Identifying areas for improvement...",
+          "Preparing your analysis...",
+        ]} />;
       case AppState.AWAITING_CONFIRMATION:
         return (
           <div className="flex flex-col items-center gap-8 w-full">
@@ -156,7 +180,12 @@ const App: React.FC = () => {
          return (
           <div className="flex flex-col items-center gap-8 w-full">
             <img src={imageToProcess!.url} alt="Preview" className="max-w-md w-full h-auto rounded-lg shadow-2xl opacity-50" />
-            <LoadingSpinner message="Enhancing your photo..." />
+            <LoadingSpinner messages={[
+              "Applying professional adjustments...",
+              "Sharpening details and clarity...",
+              "Balancing colors and tones...",
+              "Adding the final masterpiece touches...",
+            ]} />
           </div>
         );
       case AppState.DONE:
@@ -169,6 +198,9 @@ const App: React.FC = () => {
             onStartOver={resetState}
             onRefine={handleRefine}
             onImageUpdate={handleImageUpdate}
+            onUndo={handleUndo}
+            canUndo={canUndo}
+            defaultFilename={originalFilename}
           />;
         }
         return null;
@@ -207,7 +239,6 @@ const App: React.FC = () => {
         {renderContent()}
       </main>
       <footer className="text-center text-gray-500 mt-10 text-sm space-y-2">
-        <p>Powered by Gemini. Designed for amazing results.</p>
         <p>Disclaimer: AI-generated enhancements may produce unexpected results. Please use responsibly.</p>
         <p>&copy; 2024 Artifyy AI. All rights reserved.</p>
       </footer>
