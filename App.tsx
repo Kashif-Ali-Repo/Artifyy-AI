@@ -52,10 +52,10 @@ const App: React.FC = () => {
       </header>
       
       <nav className="flex justify-center items-center gap-2 p-2 mb-8 bg-gray-800/50 rounded-lg border border-gray-700">
-        <TabButton tabName="photo" label="Photo AI" activeTab={activeTab} onClick={setActiveTab}>
+        <TabButton tabName="photo" label="Studio" activeTab={activeTab} onClick={setActiveTab}>
           <SparklesIcon className="w-5 h-5" />
         </TabButton>
-        <TabButton tabName="agent" label="AI Agent" activeTab={activeTab} onClick={setActiveTab}>
+        <TabButton tabName="agent" label="Muse" activeTab={activeTab} onClick={setActiveTab}>
           <ChatBubbleIcon className="w-5 h-5" />
         </TabButton>
       </nav>
