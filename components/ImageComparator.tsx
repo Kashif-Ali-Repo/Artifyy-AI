@@ -3,9 +3,13 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 interface ImageComparatorProps {
   beforeImage: string;
   afterImage: string;
+  brightness?: number;
+  contrast?: number;
+  saturation?: number;
+  sharpness?: number;
 }
 
-const ImageComparator: React.FC<ImageComparatorProps> = ({ beforeImage, afterImage }) => {
+const ImageComparator: React.FC<ImageComparatorProps> = ({ beforeImage, afterImage, brightness = 100, contrast = 100, saturation = 100, sharpness = 0 }) => {
   const [sliderPosition, setSliderPosition] = useState(50);
   const [isDragging, setIsDragging] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -72,6 +76,14 @@ const ImageComparator: React.FC<ImageComparatorProps> = ({ beforeImage, afterIma
     transition: 'transform 0.2s ease-out',
   };
 
+  // Combine contrast and sharpness. Sharpness (-100 to 100) modifies the base contrast (0 to 200).
+  const finalContrast = Math.max(0, (contrast / 100) * (100 + sharpness / 1.5));
+
+  const afterImageStyle: React.CSSProperties = {
+    ...imageStyle,
+    filter: `brightness(${brightness}%) contrast(${finalContrast}%) saturate(${saturation}%)`,
+  };
+
   return (
     <div 
       ref={containerRef} 
@@ -80,7 +92,7 @@ const ImageComparator: React.FC<ImageComparatorProps> = ({ beforeImage, afterIma
       onMouseEnter={() => !isDragging && setIsZoomed(true)}
       onMouseLeave={() => setIsZoomed(false)}
     >
-      <img src={afterImage} alt="After" className="absolute top-0 left-0 w-full h-full object-contain pointer-events-none" style={imageStyle} />
+      <img src={afterImage} alt="After" className="absolute top-0 left-0 w-full h-full object-contain pointer-events-none" style={afterImageStyle} />
       <div 
         className="absolute top-0 left-0 w-full h-full object-contain overflow-hidden pointer-events-none"
         style={{ clipPath: `inset(0 ${100 - sliderPosition}% 0 0)` }}

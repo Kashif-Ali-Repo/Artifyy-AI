@@ -5,6 +5,7 @@ export enum AppState {
   ANALYZING,
   AWAITING_CONFIRMATION,
   ENHANCING,
+  GENERATING,
   DONE,
   ERROR,
 }

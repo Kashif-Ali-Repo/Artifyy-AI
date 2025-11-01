@@ -80,14 +80,20 @@ const getStrengthPrompt = (strength: EnhancementStrength): string => {
 
 export const enhanceImage = async (image: ImageFile, suggestions: string[], strength: EnhancementStrength, detailLevel: number): Promise<ImageFile> => {
   try {
-    const prompt = `Enhance this photograph professionally.
+    const prompt = `Enhance this photograph professionally with a strong emphasis on realism.
+
+**Core Goal:** The final image must look like a real, high-quality photograph, not an AI-generated image.
 
 **Instructions:**
 *   Apply the following enhancements: ${suggestions.join(', ')}.
 *   If brightening a face is requested, it is crucial to apply this enhancement evenly across all visible skin of the subject. Ensure the entire skin tone is brightened with consistent light and color to maintain a natural look. Avoid creating patches or making different parts of the skin appear disconnected. The goal is a uniform brightening of the person while keeping the background lighting consistent.
 *   Enhancement Intensity: ${getStrengthPrompt(strength)}.
 *   Detail Enhancement Level: ${detailLevel}/100. ${getDetailLevelPrompt(detailLevel)}.
-*   Preserve the subject's original identity and expression. Do not unnaturally distort facial features or skin color.
+*   **Realism Constraints (Crucial):**
+    *   Preserve the subject's original identity, facial structure, and expression.
+    *   Maintain natural skin texture. Do not over-smooth skin to the point it looks artificial or plastic-like.
+    *   Ensure lighting enhancements look natural and consistent with the scene. Avoid creating an artificial "glowing" effect on subjects.
+    *   Keep colors realistic, even when applying strong enhancements.
 
 **Output:**
 Return ONLY the enhanced image. Do not include any text, summary, or explanation.`;
@@ -136,13 +142,74 @@ Return ONLY the enhanced image. Do not include any text, summary, or explanation
   }
 };
 
+const getBlurLevelPrompt = (level: number): string => {
+    if (level <= 10) return "very subtle, barely noticeable";
+    if (level <= 30) return "subtle and natural";
+    if (level <= 60) return "moderate, similar to a portrait lens";
+    if (level <= 85) return "strong and prominent, making the subject stand out significantly";
+    return "maximum, creating a very dreamy and artistic effect";
+}
+
+export const applyBackgroundBlur = async (image: ImageFile, blurLevel: number): Promise<ImageFile> => {
+    if (blurLevel === 0) return image;
+    try {
+        const prompt = `Apply a realistic background blur (bokeh effect) to this image.
+- The main subject(s) must remain perfectly sharp and in focus.
+- The background should be blurred.
+- The intensity of the background blur should be ${getBlurLevelPrompt(blurLevel)} (${blurLevel}/100).
+- Do not change colors, lighting, or any other aspect of the photo.
+- Return ONLY the edited image.`;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash-image',
+            contents: {
+                parts: [
+                    {
+                        inlineData: {
+                            data: image.base64,
+                            mimeType: image.mimeType,
+                        },
+                    },
+                    {
+                        text: prompt,
+                    },
+                ],
+            },
+            config: {
+                responseModalities: [Modality.IMAGE],
+            },
+        });
+
+        const candidate = response?.candidates?.[0];
+        const part = candidate?.content?.parts?.[0];
+
+        if (part?.inlineData) {
+            return {
+                base64: part.inlineData.data,
+                mimeType: part.inlineData.mimeType,
+                url: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`,
+            };
+        } else {
+            const finishReason = candidate?.finishReason;
+            const safetyRatings = candidate?.safetyRatings;
+            console.error("Background blur failed. Reason:", finishReason, "Safety Ratings:", JSON.stringify(safetyRatings, null, 2));
+            throw new Error("The AI failed to apply background blur. This might be due to safety filters or difficulty identifying a subject.");
+        }
+    } catch (error) {
+        console.error("Error applying background blur:", error);
+        if (error instanceof Error) {
+            throw error;
+        }
+        throw new Error("Failed to apply background blur.");
+    }
+};
 
 const creativeIdeasSchema = {
   type: Type.OBJECT,
   properties: {
     ideas: {
       type: Type.ARRAY,
-      description: "A list of 3 diverse, creative suggestions to artistically enhance the photo. Examples: 'Blur the background for a portrait effect', 'Apply a warm, cinematic color grade', 'Upscale image to a higher resolution'.",
+      description: "A list of 3-5 creative, short, and actionable editing ideas for the photo. Each idea should be a concise phrase. For example: 'Add a dramatic black and white filter', 'Make the sky more vibrant', 'Apply a vintage film look'.",
       items: { type: Type.STRING },
     },
   },
@@ -155,8 +222,15 @@ export const getCreativeIdeas = async (image: ImageFile): Promise<string[]> => {
       model: "gemini-2.5-flash",
       contents: {
         parts: [
-          { inlineData: { data: image.base64, mimeType: image.mimeType } },
-          { text: "You are a creative photo editor AI. Analyze this photo and suggest 3 creative, artistic edits. Provide short, actionable suggestions." },
+          {
+            inlineData: {
+              data: image.base64,
+              mimeType: image.mimeType,
+            },
+          },
+          {
+            text: `You are Artifyy AI. Brainstorm 3-5 creative and different editing ideas for this photograph. The ideas should be short, punchy, and suitable for buttons. Examples: "Cinematic Black & White", "Vibrant & Punchy", "Dreamy Vintage Look". Do not add explanations.`,
+          },
         ],
       },
       config: {
@@ -167,29 +241,84 @@ export const getCreativeIdeas = async (image: ImageFile): Promise<string[]> => {
 
     const jsonText = response.text.trim();
     const result = JSON.parse(jsonText);
-    return result.ideas || [];
+    return result.ideas;
   } catch (error) {
     console.error("Error getting creative ideas:", error);
-    throw new Error("Failed to generate creative ideas for the image.");
+    throw new Error("Failed to generate creative ideas for this image.");
   }
 };
 
-export const applyCreativeEdit = async (image: ImageFile, instruction: string): Promise<ImageFile> => {
+export const applyCreativeEdit = async (image: ImageFile, prompt: string): Promise<ImageFile> => {
+    try {
+        const fullPrompt = `Professionally apply the following creative edit to the photograph with a strong emphasis on realism: "${prompt}".
+- The final image must look like a real, high-quality photograph, not an AI-generated image.
+- Preserve the subject's original identity and natural features.
+- Return ONLY the enhanced image. Do not include any text, summary, or explanation.`;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash-image',
+            contents: {
+                parts: [
+                    {
+                        inlineData: {
+                            data: image.base64,
+                            mimeType: image.mimeType,
+                        },
+                    },
+                    {
+                        text: fullPrompt,
+                    },
+                ],
+            },
+            config: {
+                responseModalities: [Modality.IMAGE],
+            },
+        });
+
+        const candidate = response?.candidates?.[0];
+        const part = candidate?.content?.parts?.[0];
+
+        if (part?.inlineData) {
+            return {
+                base64: part.inlineData.data,
+                mimeType: part.inlineData.mimeType,
+                url: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`,
+            };
+        } else {
+            const finishReason = candidate?.finishReason;
+            const safetyRatings = candidate?.safetyRatings;
+            console.error("Creative edit failed. Reason:", finishReason, "Safety Ratings:", JSON.stringify(safetyRatings, null, 2));
+            throw new Error("The AI failed to apply the creative edit. This might be due to safety filters.");
+        }
+    } catch (error) {
+        console.error("Error applying creative edit:", error);
+        if (error instanceof Error) {
+            throw error;
+        }
+        throw new Error("Failed to apply creative edit.");
+    }
+};
+
+export const generateImageFromPrompt = async (prompt: string): Promise<ImageFile> => {
   try {
+    const fullPrompt = `Create a photorealistic, high-quality photograph based on the following description: "${prompt}". The image should be professional-grade, with realistic lighting, textures, and details.`;
+
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: {
         parts: [
-          { inlineData: { data: image.base64, mimeType: image.mimeType } },
-          { text: `Apply the following single creative edit to this image: "${instruction}". Ensure the final result is high quality and artistically pleasing. Only return the final image.` },
+          {
+            text: fullPrompt,
+          },
         ],
       },
       config: {
         responseModalities: [Modality.IMAGE],
       },
     });
-    
-    const part = response?.candidates?.[0]?.content?.parts?.[0];
+
+    const candidate = response?.candidates?.[0];
+    const part = candidate?.content?.parts?.[0];
 
     if (part?.inlineData) {
       return {
@@ -198,14 +327,16 @@ export const applyCreativeEdit = async (image: ImageFile, instruction: string): 
         url: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`,
       };
     } else {
-      console.error("Creative edit failed. No image part in response.", JSON.stringify(response, null, 2));
-      throw new Error("The AI failed to apply the creative edit. Please try a different one.");
+      const finishReason = candidate?.finishReason;
+      const safetyRatings = candidate?.safetyRatings;
+      console.error("Image generation failed. Reason:", finishReason, "Safety Ratings:", JSON.stringify(safetyRatings, null, 2));
+      throw new Error("The AI failed to generate an image. This might be due to safety filters or an invalid prompt.");
     }
   } catch (error) {
-     console.error("Error applying creative edit:", error);
+    console.error("Error generating image from prompt:", error);
     if (error instanceof Error) {
         throw error;
     }
-    throw new Error("Failed to apply creative edit.");
+    throw new Error("Failed to generate image from prompt.");
   }
 };
